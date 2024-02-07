@@ -1,2 +1,2 @@
 # node-libvirt
-Node.js libvirt bindins
+Node.js libvirt bindings

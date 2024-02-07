@@ -1,0 +1,29 @@
+{
+  "name": "@alexanderslaa/libvirt",
+  "version": "1.0.0",
+  "description": "Node.js libvirt bindings",
+  "main": "lib/binding.ts",
+  "directories": {
+    "lib": "lib",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "ts-node tests/index.ts",
+    "install": "node-gyp rebuild",
+    "gyp:configure": "node-gyp configure",
+    "gyp:build": "node-gyp build"
+  },
+  "dependencies": {
+    "node-addon-api": "^1.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.9.2",
+    "cmake-js": "^7.1.1",
+    "node-gyp": "^10.0.1",
+    "ts-node": "^10.9.1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "gypfile": true
+}

@@ -22,13 +22,19 @@ public:
         }
     }
 
-    void SetResult(Napi::Value val) {
+    void Result(Napi::Value val) {
         val_ = val;
     }
 
+    void Error(const std::string& error){
+        SetError(error);
+    }
 
     void OnOK() override {
         Napi::HandleScope scope(Env());
+        if(!this->val_){
+            this->val_ = Env().Null();
+        }
         deferred_.Resolve(val_);
     }
 

@@ -4,7 +4,7 @@ set (CMAKE_CXX_STANDARD 11)
 
 project (node-libvirt)
 include_directories(${CMAKE_JS_INC})
-file(GLOB SOURCE_FILES "src/node-libvirt.cpp", "src/hypervisor.cpp", "src/helper/promise_worker.cpp")
+file(GLOB SOURCE_FILES "src/node-libvirt.cpp" "src/hypervisor.cpp" "src/domain.cpp" "src/helper/promise_worker.cpp")
 add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES} ${CMAKE_JS_SRC})
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
 target_link_libraries(${PROJECT_NAME} ${CMAKE_JS_LIB})
@@ -19,14 +19,4 @@ string(REGEX REPLACE "[\r\n\"]" "" NODE_ADDON_API_DIR ${NODE_ADDON_API_DIR})
 target_include_directories(${PROJECT_NAME} PRIVATE ${NODE_ADDON_API_DIR})
 
 # define NAPI_VERSION
-add_definitions(-DNAPI_VERSION=3)
-
-## Add the directory containing lxc/lxccontainer.h to the include directories
-#find_path(LIBVIRT_INCLUDE_DIR NAMES libvirt/lxccontainer.h)
-#include_directories(${LIBVIRT_INCLUDE_DIR})
-#
-## Find the LXC library
-#find_library(LIBVIRT_LIBRARY NAMES libvirt)
-#
-## Link the executable with the LXC library
-#target_link_libraries(${PROJECT_NAME} ${LIBVIRT_LIBRARY})
+add_definitions(-DNAPI_VERSION=9)

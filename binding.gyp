@@ -5,6 +5,7 @@
       'sources': [ 
         'src/node-libvirt.cpp',
         'src/hypervisor.cpp',
+        'src/domain.cpp',
        ],
       'include_dirs': ["<!@(node -p \"require('node-addon-api').include\")","/usr/include/libvirt"],
       'dependencies': ["<!(node -p \"require('node-addon-api').gyp\")"],

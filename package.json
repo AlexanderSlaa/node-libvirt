@@ -9,12 +9,16 @@
   },
   "scripts": {
     "test": "ts-node tests/index.ts",
+    "test:build": "npm run gyp:build && ts-node tests/index.ts",
     "install": "node-gyp rebuild",
     "gyp:configure": "node-gyp configure",
     "gyp:build": "node-gyp build"
   },
   "dependencies": {
-    "node-addon-api": "^1.1.0"
+    "node-addon-api": "^7.1.0"
+  },
+  "engines": {
+    "node": "~10 >=10.20 || >=12.17"
   },
   "devDependencies": {
     "@types/node": "^20.9.2",

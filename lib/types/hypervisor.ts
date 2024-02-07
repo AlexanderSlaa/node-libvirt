@@ -1,4 +1,7 @@
-export type Hypervisor = {
+import {type Domain} from "./domain";
+
+export type Hypervisor ={
+
     new(config: {
         username?: string,
         password?: string,
@@ -10,5 +13,7 @@ export type Hypervisor = {
 
     connect(): Promise<void>;
     disconnect(): Promise<void>;
+
+    domains(): Domain[]
 
 }

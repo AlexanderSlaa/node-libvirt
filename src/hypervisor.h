@@ -27,16 +27,23 @@ public:
 
     ~Hypervisor();
 
-public:
-    Napi::Value connect(const Napi::CallbackInfo &info);
+    virConnectPtr Handle(){
+        return this->_handle;
+    }
 
-    Napi::Value disconnect(const Napi::CallbackInfo &info);
+private:
+
+    Napi::Value Connect(const Napi::CallbackInfo &info);
+
+    Napi::Value Disconnect(const Napi::CallbackInfo &info);
 
     Napi::Value GetCapabilities(const Napi::CallbackInfo &info);
 
     Napi::Value GetHostname(const Napi::CallbackInfo &info);
 
     Napi::Value GetSysInfo(const Napi::CallbackInfo &info);
+
+    Napi::Value ListAllDomains(const Napi::CallbackInfo &info);
 };
 
 #endif // NODE_LIBVIRT_HYPERVISOR_H

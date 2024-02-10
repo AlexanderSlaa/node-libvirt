@@ -1,12 +1,19 @@
-import {type libvirt} from "./types";
+import {type libvirt as virt} from "./types";
 
-const libvirt = require("./../build/Release/node-libvirt.node") as libvirt;
+const $ = require("./../build/Release/node-libvirt.node") as virt;
 
 
-export const Hypervisor = libvirt.Hypervisor;
-export const Domain = libvirt.Domain;
+export const Hypervisor = $.Hypervisor;
+export const Domain = $.Domain;
 
-export function GetVersion(){
-    return libvirt.GetVersion();
+export const libvirt = {
+    GetVersion: $.GetVersion,
+    GetVersionObject: () => {
+        const version = $.GetVersion();
+        return {
+            major: version / 1000000,
+            minor: (version / 1000) % 1000,
+            micro: version % 1000
+        }
+    }
 }
-

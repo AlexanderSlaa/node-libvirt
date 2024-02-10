@@ -41,19 +41,51 @@ private:
     void Shutdown(const Napi::CallbackInfo &info);
 
     /**
-     * Launch a defined domain.
-     * If the call succeeds the domain moves from the defined to the running domains pools.
-     * The domain will be paused only if restoring from managed state created from a paused domain.
+     * Launch a defined domain. If the call succeeds the domain moves from the defined to the running domains pools.
+     * * If the VIR_DOMAIN_START_PAUSED flag is set, or if the guest domain has a managed save image that requested paused state (see virDomainManagedSave()) the guest domain will be started, but its CPUs will remain paused. The CPUs can later be manually started using virDomainResume(). In all other cases, the guest domain will be running.
+     * * If the VIR_DOMAIN_START_AUTODESTROY flag is set, the guest domain will be automatically destroyed when the virConnectPtr object is finally released. This will also happen if the client application crashes / loses its connection to the libvirtd daemon. Any domains marked for auto destroy will block attempts at migration. Hypervisors may also block save-to-file, or snapshots.
+     * * If the VIR_DOMAIN_START_BYPASS_CACHE flag is set, and there is a managed save file for this domain (created by virDomainManagedSave()), then libvirt will attempt to bypass the file system cache while restoring the file, or fail if it cannot do so for the given system; this can allow less pressure on file system cache, but also risks slowing loads from NFS.
+     * * If the VIR_DOMAIN_START_FORCE_BOOT flag is set, then any managed save file for this domain is discarded, and the domain boots from scratch.
+     * * If flags includes VIR_DOMAIN_START_RESET_NVRAM, then libvirt will discard any existing NVRAM file and re-initialize NVRAM from the pristine template.
+     *
+     * domain: pointer to a defined domain
+     * flags: bitwise-OR of supported virDomainCreateFlags
+     * Returns: 0 in case of success, -1 in case of error
+     * Access control parameter checks
+     *
+
+     * | Object                                             | Permission                                            | Condition |
+     * |----------------------------------------------------|-------------------------------------------------------|-----------|
+     * | [domain](https://libvirt.org/acl.html#object_domain) | [start](https://libvirt.org/acl.html#perm_domain_start) |x    |
+     *
      * @param info
      */
     void Create(const Napi::CallbackInfo &info);
+
+    void Save(const Napi::CallbackInfo &info);
+
+    Napi::Value ToXML(const Napi::CallbackInfo &info);
     //endregion
 
 private:
 
 //region STATIC
 
-    static Napi::Value FromXML(const Napi::CallbackInfo &info);
+    /**
+     * Define a domain, but does not start it.
+     *
+     * This definition is persistent, until explicitly undefined with virDomainUndefine().
+     *
+     * A previous definition for this domain with the same UUID and name would be overridden if it already exists.
+     * @param info
+     * @return Domain
+     */
+    static Napi::Value DefineXML(const Napi::CallbackInfo &info);
+
+    static Napi::Value CreateXML(const Napi::CallbackInfo &info);
+
+    static Napi::Value LookupById(const Napi::CallbackInfo &info);
+
 //endregion
 
 private:

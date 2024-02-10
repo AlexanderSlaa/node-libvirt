@@ -1,6 +1,7 @@
-import {type Domain} from "./domain";
+import {type Domain, DomainSaveRestoreFlags} from "./domain";
+import {NodeInfo} from "./nodeinfo";
 
-export type Hypervisor ={
+export type Hypervisor = {
 
     new(config: {
         username?: string,
@@ -9,11 +10,18 @@ export type Hypervisor ={
         readOnly?: true
     });
 
+    get capabilities(): string
     get hostname(): string
+    get sysInfo(): string
+    get maxVCPUs(): number
+    get info(): NodeInfo
 
     connect(): Promise<void>;
     disconnect(): Promise<void>;
 
     domains(): Domain[]
-
+    lookupDomainById(id: number): Promise<Domain>
+    lookupDomainByName(name: string): Promise<Domain>
+    lookupDomainByUUIDString(uuid: string): Promise<Domain>
+    restoreDomain(xml: string, dxml?: string, flags?: DomainSaveRestoreFlags): Promise<Domain>
 }

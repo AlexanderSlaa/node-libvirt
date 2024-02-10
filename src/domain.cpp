@@ -4,7 +4,9 @@
 
 #include "domain.h"
 #include "helper/assert.h"
+#include "helper/error.h"
 #include "hypervisor.h"
+#include "helper/promise_worker.h"
 
 //region STATIC
 
@@ -19,8 +21,13 @@ Napi::Object Domain::Init(Napi::Env env, Napi::Object exports) {
                     /* Instance Methods */
                     InstanceMethod("shutdown", &Domain::Shutdown),
                     InstanceMethod("create", &Domain::Create),
+                    InstanceMethod("save", &Domain::Save),
+                    InstanceMethod("toXML", &Domain::ToXML),
+
+
                     /* Static Methods */
-                    StaticMethod("FromXML", &Domain::FromXML)
+                    StaticMethod("DefineXML", &Domain::DefineXML),
+                    StaticMethod("CreateXML", &Domain::CreateXML)
             });
 
 
@@ -37,7 +44,8 @@ Napi::Object Domain::New(Napi::Env env, const std::initializer_list<napi_value> 
     return scope.Escape(napi_value(obj)).ToObject();
 }
 
-Napi::Value Domain::FromXML(const Napi::CallbackInfo &info) {
+
+Napi::Value Domain::DefineXML(const Napi::CallbackInfo &info) {
     auto env = info.Env();
     if (info.Length() <= 0 || !info[0].IsString() || !info[1].IsObject()) {
         Napi::Error::New(env, "Invalid arguments").ThrowAsJavaScriptException();
@@ -51,11 +59,25 @@ Napi::Value Domain::FromXML(const Napi::CallbackInfo &info) {
     } else {
         domainPtr = virDomainDefineXML(pHypervisor->Handle(), xml.c_str());
     }
-    auto err = virGetLastError();
-    if (err != nullptr) {
-        Napi::Error::New(env,err->message).ThrowAsJavaScriptException();
+    virt_error_check_last()
+    return Domain::New(env, {Napi::External<virDomain>::New(env, domainPtr)});
+}
+
+Napi::Value Domain::CreateXML(const Napi::CallbackInfo &info) {
+    auto env = info.Env();
+    if (info.Length() <= 0 || !info[0].IsString() || !info[1].IsObject()) {
+        Napi::Error::New(env, "Invalid arguments").ThrowAsJavaScriptException();
         return env.Undefined();
     }
+    auto xml = info[0].ToString().Utf8Value();
+    virDomainPtr domainPtr;
+    auto pHypervisor = Napi::ObjectWrap<Hypervisor>::Unwrap(info[1].ToObject());
+    if (info[2].IsNumber()) {
+        domainPtr = virDomainCreateXML(pHypervisor->Handle(), xml.c_str(), info[2].ToNumber().Uint32Value());
+    } else {
+        domainPtr = virDomainCreateXML(pHypervisor->Handle(), xml.c_str(), 0);
+    }
+    virt_error_check(domainPtr);
     return Domain::New(env, {Napi::External<virDomain>::New(env, domainPtr)});
 }
 
@@ -63,7 +85,6 @@ Napi::Value Domain::FromXML(const Napi::CallbackInfo &info) {
 
 //region INSTANCE
 
-//region INSTANCE METHODS
 
 Domain::Domain(const Napi::CallbackInfo &info) : Napi::ObjectWrap<Domain>(info) {
     Napi::Env env = info.Env();
@@ -79,32 +100,63 @@ Domain::~Domain() {
     if (this->_domain) virDomainFree(this->_domain);
 }
 
+//region INSTANCE METHODS
+
+
 void Domain::Create(const Napi::CallbackInfo &info) {
     assert_void(this->_domain, "Domain is not defined")
-    auto env = info.Env();
-    int res;
+    int ret;
     if (info[0] && info[0].IsNumber()) {
-        res = virDomainCreateWithFlags(this->_domain, info[1].ToNumber().Uint32Value());
+        ret = virDomainCreateWithFlags(this->_domain, info[1].ToNumber().Uint32Value());
     } else {
-        res = virDomainCreate(this->_domain);
+        ret = virDomainCreate(this->_domain);
     }
-    if (res < 0) {
-        Napi::Error::New(env, std::string(virGetLastError()->message)).ThrowAsJavaScriptException();
+    virt_error_check_void(ret < 0)
+}
+
+void Domain::Save(const Napi::CallbackInfo &info) {
+    assert_void(this->_domain, "Domain is not defined")
+
+    auto env = info.Env();
+    if (info.Length() <= 0 || !info[0].IsString()) {
+        Napi::Error::New(env, "Invalid arguments").ThrowAsJavaScriptException();
+        return;
     }
+    virt_error_check_void(
+            virDomainSaveFlags(
+                    this->_domain,
+                    info[0].ToString().Utf8Value().c_str(),
+                    info[2].IsString() ? info[2].ToString().Utf8Value().c_str() : nullptr,
+                    info[1].IsNumber() ? info[1].ToNumber().Int32Value() : 0)
+            < 0)
 }
 
 void Domain::Shutdown(const Napi::CallbackInfo &info) {
     assert_void(this->_domain, "Domain not defined");
-    Napi::Env env = info.Env();
     int ret;
     if (info.Length() > 0 && info[0].IsNumber()) { /* Check if shutdown request is with flags */
         ret = virDomainShutdownFlags(this->_domain, info[0].ToNumber().Uint32Value());
     } else {
         ret = virDomainShutdown(this->_domain);
     }
-    if (ret < 0) {
-        Napi::Error::New(env, std::string(virGetLastError()->message)).ThrowAsJavaScriptException();
+    virt_error_check_void(ret < 0);
+}
+
+Napi::Value Domain::ToXML(const Napi::CallbackInfo &info) {
+    assert(this->_domain, "Domain not defined");
+
+    if (info.Length() <= 0 || !info[0].IsNumber()) {
+        Napi::Error::New(info.Env(), "Invalid arguments").ThrowAsJavaScriptException();
+        return info.Env().Undefined();
     }
+
+    auto flags = info[0].ToNumber().Uint32Value();
+
+    auto xmlDesc = virDomainGetXMLDesc(this->_domain, flags);
+    virt_error_check(xmlDesc == nullptr);
+    auto ret = Napi::String::New(info.Env(), xmlDesc);
+    free(xmlDesc);
+    return ret;
 }
 
 //endregion
@@ -116,11 +168,7 @@ Napi::Value Domain::Info(const Napi::CallbackInfo &info) {
     auto env = info.Env();
 //region request virDomainInfo
     virDomainInfo domainInfo;
-    auto ret = virDomainGetInfo(this->_domain, &domainInfo);
-    if (ret < 0) {
-        Napi::Error::New(env, std::string(virGetLastError()->message)).ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
+    virt_error_check(virDomainGetInfo(this->_domain, &domainInfo) < 0);
 //endregion
 //region virDomainInfo to Javascript object
     auto infoObj = Napi::Object::New(env);
@@ -133,7 +181,7 @@ Napi::Value Domain::Info(const Napi::CallbackInfo &info) {
 //endregion
 }
 
-Napi::Value Domain::Name(const Napi::CallbackInfo &info) {
+Napi::Value Domain::Id(const Napi::CallbackInfo &info) {
     assert(this->_domain, "Domain not defined");
 
     auto env = info.Env();
@@ -146,30 +194,21 @@ Napi::Value Domain::Name(const Napi::CallbackInfo &info) {
      * null as id.
      */
     if (id == static_cast<unsigned int>(-1)) {
-        virErrorPtr err = virGetLastError();
-        if (err != nullptr) {
-            Napi::Error::New(env, std::string(err->message)).ThrowAsJavaScriptException();
-            return env.Undefined();
-        }
+        virt_error_check_last();
     }
 //endregion
     return Napi::Number::New(env, id);
 }
 
-Napi::Value Domain::Id(const Napi::CallbackInfo &info) {
+Napi::Value Domain::Name(const Napi::CallbackInfo &info) {
     assert(this->_domain, "Domain not defined");
     return Napi::String::New(info.Env(), virDomainGetName(this->_domain));
 }
 
 Napi::Value Domain::UUIDString(const Napi::CallbackInfo &info) {
     assert(this->_domain, "Domain not defined");
-    auto env = info.Env();
     char uuid[VIR_UUID_STRING_BUFLEN];
-    int res = virDomainGetUUIDString(this->_domain, uuid);
-    if (res < 0) {
-        Napi::Error::New(env, std::string(virGetLastError()->message)).ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
+    virt_error_check(virDomainGetUUIDString(this->_domain, uuid) < 0);
     return Napi::String::New(Env(), uuid, VIR_UUID_STRING_BUFLEN - 1);
 }
 

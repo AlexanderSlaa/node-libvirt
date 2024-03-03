@@ -13,17 +13,18 @@
 Napi::Object Domain::Init(Napi::Env env, Napi::Object exports) {
     Napi::Function func =
             DefineClass(env, "Domain", {
+
                     /* Instance accessors */
                     InstanceAccessor("info", &Domain::Info, nullptr),
                     InstanceAccessor("id", &Domain::Id, nullptr),
                     InstanceAccessor("name", &Domain::Name, nullptr),
                     InstanceAccessor("uuid", &Domain::UUIDString, nullptr),
+
                     /* Instance Methods */
                     InstanceMethod("shutdown", &Domain::Shutdown),
                     InstanceMethod("create", &Domain::Create),
                     InstanceMethod("save", &Domain::Save),
                     InstanceMethod("toXML", &Domain::ToXML),
-
 
                     /* Static Methods */
                     StaticMethod("DefineXML", &Domain::DefineXML),
